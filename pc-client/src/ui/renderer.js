@@ -99,7 +99,12 @@ async function refreshConfig(options = {}) {
     profiles = await api.refreshConfig();
     lastConfigRefreshAt = Date.now();
     renderProfiles();
-    appendLog(`Config updated: version ${formatConfigVersion(profiles.version)}.`);
+    const serverCount = profiles.counts.proxyServers || profiles.servers.length || 0;
+    const bugHostCount = profiles.counts.bugHosts || 0;
+    appendLog(`Config updated: version ${formatConfigVersion(profiles.version)}, ${serverCount} servers, ${bugHostCount} bug hosts.`);
+    if (serverCount === 0) {
+      appendLog("No active servers are published. Add a server in admin, click Publish, then UPDATE again.", "error");
+    }
   } catch (error) {
     if (options.inline) {
       throw error;

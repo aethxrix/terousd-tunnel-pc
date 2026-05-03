@@ -206,6 +206,11 @@ async function publishConfig() {
 
   try {
     const { activeBugHosts, activeServers } = buildPublishedConfig();
+    if (!activeServers.length) {
+      setStatus("Add at least one active server before publishing.", "error");
+      return;
+    }
+
     if (publishedConfigKey(currentConfig) === publishedConfigKey({ bugHosts: activeBugHosts, servers: activeServers })) {
       setStatus("No server changes to publish.");
       return;
