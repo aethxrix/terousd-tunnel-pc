@@ -13,7 +13,6 @@ import {
   getDoc,
   getDocs,
   getFirestore,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -59,8 +58,8 @@ logoutBtn.addEventListener("click", () => signOut(auth).catch(showError));
 resetBugHostBtn.addEventListener("click", resetBugHostForm);
 resetBtn.addEventListener("click", resetForm);
 publishBtn.addEventListener("click", publishConfig);
-bugHostForm.addEventListener("submit", saveBugHost);
-serverForm.addEventListener("submit", saveServer);
+bugHostForm.addEventListener("submit", (event) => saveBugHost(event).catch(showError));
+serverForm.addEventListener("submit", (event) => saveServer(event).catch(showError));
 
 onAuthStateChanged(auth, async (user) => {
   clearInterval(usageTimer);
@@ -82,8 +81,13 @@ onAuthStateChanged(auth, async (user) => {
   lockedPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   authState.textContent = user.email;
-  await loadAll();
-  usageTimer = setInterval(refreshUsage, 60 * 1000);
+  try {
+    await loadAll();
+    usageTimer = setInterval(refreshUsage, 60 * 1000);
+  } catch (error) {
+    renderAll();
+    showError(error);
+  }
 });
 
 async function loadAll() {
@@ -93,13 +97,13 @@ async function loadAll() {
 }
 
 async function loadBugHosts() {
-  const snapshot = await getDocs(query(collection(db, "pcBugHosts"), orderBy("sortOrder"), orderBy("name")));
-  bugHosts = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  const snapshot = await getDocs(collection(db, "pcBugHosts"));
+  bugHosts = sortAdminRows(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
 }
 
 async function loadServers() {
-  const snapshot = await getDocs(query(collection(db, "pcServers"), orderBy("sortOrder"), orderBy("name")));
-  servers = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  const snapshot = await getDocs(collection(db, "pcServers"));
+  servers = sortAdminRows(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
 }
 
 async function loadConfig() {
@@ -136,6 +140,7 @@ async function saveBugHost(event) {
     setStatus("Bug host name is required.", "error");
     return;
   }
+  setStatus("Saving bug host.");
   await setDoc(doc(db, "pcBugHosts", id), bugHost, { merge: true });
   resetBugHostForm();
   await Promise.all([loadBugHosts(), loadServers()]);
@@ -164,6 +169,7 @@ async function saveServer(event) {
     setStatus("Name, host, and port are required.", "error");
     return;
   }
+  setStatus("Saving server.");
   await setDoc(doc(db, "pcServers", id), server, { merge: true });
   resetForm();
   await loadServers();
@@ -443,6 +449,17 @@ function optionFor(value, label) {
   option.value = value;
   option.textContent = label;
   return option;
+}
+
+function sortAdminRows(items) {
+  return [...items].sort((left, right) => {
+    const leftOrder = cleanNumber(left.sortOrder) || Number.MAX_SAFE_INTEGER;
+    const rightOrder = cleanNumber(right.sortOrder) || Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+    return cleanText(left.name || left.host).localeCompare(cleanText(right.name || right.host));
+  });
 }
 
 function isConnected(data, now) {
