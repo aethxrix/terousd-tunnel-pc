@@ -18,6 +18,10 @@ service cloud.firestore {
       allow read, write: if isPcAdmin();
     }
 
+    match /pcBugHosts/{bugHostId} {
+      allow read, write: if isPcAdmin();
+    }
+
     match /usageUsers/{docId} {
       allow read, delete: if isPcAdmin();
       allow create, update: if request.resource.data.installId == docId

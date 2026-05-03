@@ -46,30 +46,36 @@ class ConfigRepository {
   async listForUi(cache = null) {
     const loaded = normalizeCache(cache || await this.loadCached());
     const proxyServers = loaded.servers.filter((profile) => isDirectProxyProfile(profile) && hasProxyAddress(profile));
+    const bugHosts = loaded.bugHosts.filter((profile) => profile.active);
+    const hasUngroupedServers = proxyServers.some((server) => !hasValue(server.proxyGroupId));
     return {
       version: loaded.version || 0,
       publishedAt: loaded.publishedAt || "",
       notice: loaded.notice || normalizeNotice(null),
       servers: proxyServers.map(publicProfile),
-      bugHosts: proxyServers.length ? [publicProfile(allProxyHost())] : [],
+      bugHosts: proxyServers.length ? [
+        ...(hasUngroupedServers || !bugHosts.length ? [publicProfile(allProxyHost())] : []),
+        ...bugHosts.map(publicProfile)
+      ] : [],
       counts: {
         allServers: loaded.servers.length,
         proxyServers: proxyServers.length,
-        bugHosts: proxyServers.length ? 1 : 0
+        bugHosts: bugHosts.length
       }
     };
   }
 
-  async composeProfile(serverId) {
+  async composeProfile(serverId, bugId) {
     const cache = await this.loadCached();
-    const server = cache.servers.find((item) => item.id === serverId);
+    const bug = selectedBugHost(cache, bugId);
+    const server = selectServer(cache, serverId, bug);
     if (!server) {
       throw new Error("Choose a server first.");
     }
     if (!isDirectProxyProfile(server)) {
       throw new Error("This PC app supports only HTTP and SOCKS5 proxy servers.");
     }
-    return directProxyResult(directProxyProfile(server, allProxyHost()), server, allProxyHost());
+    return directProxyResult(directProxyProfile(server, bug), server, bug);
   }
 
   async fetchRemoteConfig(bustCache) {
@@ -131,6 +137,7 @@ function normalizeCache(cache) {
     version: cleanVersion(value.version),
     publishedAt: String(value.publishedAt || value.updatedAt || ""),
     notice: normalizeNotice(value.notice),
+    bugHosts: sortProfiles((value.bugHosts || []).map(normalizeProfile).filter((profile) => profile.active)),
     servers: sortProfiles((value.servers || []).map(normalizeProfile).filter((profile) => profile.active))
   };
 }
@@ -186,6 +193,7 @@ function normalizeProfile(value = {}) {
     methodType: stringValue(value.methodType),
     bugType: stringValue(value.bugType),
     bugHost: stringValue(value.bugHost),
+    proxyGroupId: stringValue(value.proxyGroupId || value.bugHostId),
     remoteProxyHost: stringValue(value.remoteProxyHost),
     remoteProxyPort: stringValue(value.remoteProxyPort),
     iconKey: stringValue(value.iconKey),
@@ -209,6 +217,7 @@ function publicProfile(profile) {
     iconUrl: normalized.iconUrl,
     method: methodForBug(normalized),
     connectMode: connectMode(normalized),
+    proxyGroupId: normalized.proxyGroupId,
     sortOrder: normalized.sortOrder
   };
 }
@@ -229,6 +238,7 @@ function methodForBug(profile) {
   }
   const type = String(valueOr(profile.bugType, profile.methodType)).trim().toLowerCase();
   if (type === "proxy-all") return "proxy-all";
+  if (type === "proxy-group") return "proxy-group";
   if (type === "socks" || type === "socks5" || type === "socks5-proxy") return "socks5-proxy";
   return "http-proxy";
 }
@@ -267,7 +277,31 @@ function connectMode(profile) {
   if (profile.id === NONE_BUG_ID || methodForBug(profile) === "proxy-all") {
     return "proxy-all";
   }
+  if (methodForBug(profile) === "proxy-group") {
+    return "proxy-group";
+  }
   return "proxy";
+}
+
+function selectedBugHost(cache, bugId) {
+  if (!bugId || bugId === NONE_BUG_ID) {
+    return allProxyHost();
+  }
+  return cache.bugHosts.find((item) => item.id === bugId) || allProxyHost();
+}
+
+function selectServer(cache, serverId, bug) {
+  if (!serverId) {
+    return null;
+  }
+  const server = cache.servers.find((item) => item.id === serverId);
+  if (!server) {
+    return null;
+  }
+  if (methodForBug(bug) === "proxy-group") {
+    return server.proxyGroupId === bug.id ? server : null;
+  }
+  return server;
 }
 
 function sortProfiles(items) {

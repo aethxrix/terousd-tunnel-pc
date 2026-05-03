@@ -84,6 +84,17 @@ h2 {
   font-size: 15px;
 }
 
+h3 {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+h3:first-of-type {
+  margin-top: 0;
+}
+
 .brand span,
 .stats span,
 label span,
@@ -130,7 +141,7 @@ button.ghost {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-top: 12px;
 }
 
@@ -160,10 +171,15 @@ button.ghost {
 
 .grid {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 380px 1fr;
   gap: 12px;
   margin-top: 12px;
   align-items: start;
+}
+
+.forms-stack {
+  display: grid;
+  gap: 12px;
 }
 
 .panel {

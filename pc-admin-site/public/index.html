@@ -24,6 +24,7 @@
 
       <section class="stats">
         <div><strong id="serverCount">0</strong><span>Servers</span></div>
+        <div><strong id="bugHostCount">0</strong><span>Bug Hosts</span></div>
         <div><strong id="versionText">0</strong><span>Config</span></div>
         <div><strong id="connectedNow">0</strong><span>Connected</span></div>
       </section>
@@ -33,61 +34,93 @@
       </section>
 
       <section id="adminPanel" class="grid hidden">
-        <form id="serverForm" class="panel">
-          <input type="hidden" name="id">
-          <div class="panel-title">
-            <h2 id="formTitle">Add Server</h2>
-            <button id="resetBtn" type="button" class="ghost">Clear</button>
-          </div>
-          <label>
-            <span>Name</span>
-            <input name="name" required maxlength="48" autocomplete="off">
-          </label>
-          <div class="two">
+        <div class="forms-stack">
+          <form id="bugHostForm" class="panel">
+            <input type="hidden" name="id">
+            <div class="panel-title">
+              <h2 id="bugHostFormTitle">Add Bug Host</h2>
+              <button id="resetBugHostBtn" type="button" class="ghost">Clear</button>
+            </div>
             <label>
-              <span>Protocol</span>
-              <select name="protocol">
-                <option value="http">HTTP</option>
-                <option value="socks5">SOCKS5</option>
-              </select>
+              <span>Name</span>
+              <input name="name" required maxlength="48" autocomplete="off">
+            </label>
+            <div class="two compact">
+              <label>
+                <span>Order</span>
+                <input name="sortOrder" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+              </label>
+              <label class="check">
+                <input name="active" type="checkbox" checked>
+                <span>Active</span>
+              </label>
+            </div>
+            <button type="submit" class="primary">Save Bug Host</button>
+          </form>
+
+          <form id="serverForm" class="panel">
+            <input type="hidden" name="id">
+            <div class="panel-title">
+              <h2 id="formTitle">Add Server</h2>
+              <button id="resetBtn" type="button" class="ghost">Clear</button>
+            </div>
+            <label>
+              <span>Name</span>
+              <input name="name" required maxlength="48" autocomplete="off">
+            </label>
+            <div class="two">
+              <label>
+                <span>Protocol</span>
+                <select name="protocol">
+                  <option value="http">HTTP</option>
+                  <option value="socks5">SOCKS5</option>
+                </select>
+              </label>
+              <label>
+                <span>Port</span>
+                <input name="port" required inputmode="numeric" pattern="[0-9]{1,5}" autocomplete="off">
+              </label>
+            </div>
+            <label>
+              <span>Bug Host</span>
+              <select name="bugHostId" id="serverBugHostSelect"></select>
             </label>
             <label>
-              <span>Port</span>
-              <input name="port" required inputmode="numeric" pattern="[0-9]{1,5}" autocomplete="off">
+              <span>Host</span>
+              <input name="host" required maxlength="255" autocomplete="off">
             </label>
-          </div>
-          <label>
-            <span>Host</span>
-            <input name="host" required maxlength="255" autocomplete="off">
-          </label>
-          <div class="two">
-            <label>
-              <span>Username</span>
-              <input name="username" maxlength="120" autocomplete="off">
-            </label>
-            <label>
-              <span>Password</span>
-              <input name="password" maxlength="120" autocomplete="off">
-            </label>
-          </div>
-          <div class="two compact">
-            <label>
-              <span>Order</span>
-              <input name="sortOrder" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-            </label>
-            <label class="check">
-              <input name="active" type="checkbox" checked>
-              <span>Active</span>
-            </label>
-          </div>
-          <button type="submit" class="primary">Save</button>
-        </form>
+            <div class="two">
+              <label>
+                <span>Username</span>
+                <input name="username" maxlength="120" autocomplete="off">
+              </label>
+              <label>
+                <span>Password</span>
+                <input name="password" maxlength="120" autocomplete="off">
+              </label>
+            </div>
+            <div class="two compact">
+              <label>
+                <span>Order</span>
+                <input name="sortOrder" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+              </label>
+              <label class="check">
+                <input name="active" type="checkbox" checked>
+                <span>Active</span>
+              </label>
+            </div>
+            <button type="submit" class="primary">Save Server</button>
+          </form>
+        </div>
 
         <section class="panel list-panel">
           <div class="panel-title">
             <h2>HTTP/SOCKS5</h2>
             <button id="publishBtn" type="button" class="primary">Publish</button>
           </div>
+          <h3>Bug Hosts</h3>
+          <div id="bugHostList" class="server-list"></div>
+          <h3>Servers</h3>
           <div id="serverList" class="server-list"></div>
         </section>
       </section>

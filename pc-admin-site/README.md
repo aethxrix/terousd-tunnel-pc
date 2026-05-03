@@ -6,6 +6,7 @@ It manages only:
 
 - HTTP proxy servers
 - SOCKS5 proxy servers
+- Name-only bug-host groups
 - PC usage counters
 
 ## Firebase

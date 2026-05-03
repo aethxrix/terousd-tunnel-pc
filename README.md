@@ -5,7 +5,7 @@ Open-source PC-only tunnel client and compact admin website.
 This repository contains only:
 
 - `pc-client`: Windows Electron client for HTTP/SOCKS5 proxy VPN mode
-- `pc-admin-site`: Firebase Hosting admin site for PC HTTP/SOCKS5 servers
+- `pc-admin-site`: Firebase Hosting admin site for PC HTTP/SOCKS5 servers and name-only bug-host groups
 
 It does not include Android source code, the Android admin website, SSH, V2Ray, or OpenVPN.
 
