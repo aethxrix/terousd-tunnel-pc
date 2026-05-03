@@ -1,6 +1,6 @@
-# Terousd Tunnel PC
+# Terousd Tunnel PC Client
 
-Open-source Windows desktop client for HTTP and SOCKS5 proxy VPN mode.
+Open-source Windows desktop client for forked HTTP and SOCKS5 proxy VPN builds.
 
 ## Features
 
@@ -11,28 +11,22 @@ Open-source Windows desktop client for HTTP and SOCKS5 proxy VPN mode.
 - PC usage heartbeat after 60 seconds connected
 - Automatic TUN restart if the engine exits unexpectedly
 - Single-instance tray app
-- Terousd desktop logo and app icon
+- Desktop logo and app icon
 
 The PC client intentionally does not include Android code, SSH, V2Ray, or OpenVPN.
 
-## Firebase
+## Configure Your Fork
 
-Default project for this build:
+Update the Firebase project settings in:
 
 ```text
-YOUR_FIREBASE_PROJECT_ID
+src/config/firebaseProject.js
 ```
 
-The PC app reads published config from:
+Use the same Firebase project as your admin website. The PC app reads published config from:
 
 ```text
 pcPublic/config
-```
-
-The admin website manages draft servers in:
-
-```text
-pcServers
 ```
 
 ## Run
@@ -52,14 +46,6 @@ The Windows build is written to:
 
 ```text
 dist
-```
-
-## Configuration
-
-Change the Firebase project in:
-
-```text
-src/config/firebaseProject.js
 ```
 
 Only HTTP and SOCKS5 server records are used by the client.

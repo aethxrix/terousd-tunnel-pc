@@ -1,6 +1,6 @@
 # Terousd Tunnel PC Admin
 
-Compact Firebase Hosting admin panel for the PC client.
+Compact Firebase Hosting admin panel for forked PC builds.
 
 It manages only:
 
@@ -9,30 +9,23 @@ It manages only:
 - Name-only bug-host groups
 - PC usage counters
 
-## Firebase
+## Configure Your Fork
 
-Project created for this PC build:
-
-```text
-YOUR_FIREBASE_PROJECT_ID
-```
-
-Firestore database:
+Create your own Firebase project, enable Firestore, enable Firebase Authentication with the Google provider, then update:
 
 ```text
-(default), asia-south1
+public/firebase-config.js
+firestore.rules
+.firebaserc
 ```
 
-Deploy rules and hosting:
+Replace `YOUR_FIREBASE_PROJECT_ID` and the other `YOUR_FIREBASE_*` placeholders with your Firebase Web App config. Replace `you@example.com` with the Google account that should be allowed to manage servers.
+
+## Deploy
 
 ```powershell
+firebase login
 firebase deploy --project YOUR_FIREBASE_PROJECT_ID
 ```
 
-## Auth
-
-Enable Firebase Authentication -> Google provider in the Firebase Console, then set your admin email in `public/firebase-config.js`.
-
-```text
-you@example.com
-```
+After deploy, open your Firebase Hosting URL, sign in, add servers and bug-host groups, then click `Publish` so the PC client can download `pcPublic/config`.
