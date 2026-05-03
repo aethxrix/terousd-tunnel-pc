@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terousd Tunnel PC Admin</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="terousd-logo.png" alt="" class="logo">
+          <div>
+            <h1>Terousd Tunnel PC</h1>
+            <span id="authState">Signed out</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button id="loginBtn" type="button">Sign in</button>
+          <button id="logoutBtn" type="button" class="ghost hidden">Sign out</button>
+        </div>
+      </header>
+
+      <section class="stats">
+        <div><strong id="serverCount">0</strong><span>Servers</span></div>
+        <div><strong id="versionText">0</strong><span>Config</span></div>
+        <div><strong id="connectedNow">0</strong><span>Connected</span></div>
+      </section>
+
+      <section id="lockedPanel" class="locked">
+        <p>Sign in with the PC admin Google account.</p>
+      </section>
+
+      <section id="adminPanel" class="grid hidden">
+        <form id="serverForm" class="panel">
+          <input type="hidden" name="id">
+          <div class="panel-title">
+            <h2 id="formTitle">Add Server</h2>
+            <button id="resetBtn" type="button" class="ghost">Clear</button>
+          </div>
+          <label>
+            <span>Name</span>
+            <input name="name" required maxlength="48" autocomplete="off">
+          </label>
+          <div class="two">
+            <label>
+              <span>Protocol</span>
+              <select name="protocol">
+                <option value="http">HTTP</option>
+                <option value="socks5">SOCKS5</option>
+              </select>
+            </label>
+            <label>
+              <span>Port</span>
+              <input name="port" required inputmode="numeric" pattern="[0-9]{1,5}" autocomplete="off">
+            </label>
+          </div>
+          <label>
+            <span>Host</span>
+            <input name="host" required maxlength="255" autocomplete="off">
+          </label>
+          <div class="two">
+            <label>
+              <span>Username</span>
+              <input name="username" maxlength="120" autocomplete="off">
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" maxlength="120" autocomplete="off">
+            </label>
+          </div>
+          <div class="two compact">
+            <label>
+              <span>Order</span>
+              <input name="sortOrder" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            </label>
+            <label class="check">
+              <input name="active" type="checkbox" checked>
+              <span>Active</span>
+            </label>
+          </div>
+          <button type="submit" class="primary">Save</button>
+        </form>
+
+        <section class="panel list-panel">
+          <div class="panel-title">
+            <h2>HTTP/SOCKS5</h2>
+            <button id="publishBtn" type="button" class="primary">Publish</button>
+          </div>
+          <div id="serverList" class="server-list"></div>
+        </section>
+      </section>
+
+      <div id="status" class="status"></div>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

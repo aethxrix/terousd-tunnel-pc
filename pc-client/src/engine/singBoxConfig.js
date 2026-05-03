@@ -1,0 +1,131 @@
+function buildSingBoxTunConfig(profile, options = {}) {
+  const outbound = proxyOutbound(profile);
+  const tunOptions = tunConfigOptions(options);
+  return {
+    log: {
+      level: "warn",
+      timestamp: true
+    },
+    dns: {
+      servers: [
+        {
+          type: "local",
+          tag: "local-dns"
+        },
+        {
+          type: "https",
+          tag: "remote-dns",
+          server: "1.1.1.1",
+          server_port: 443,
+          path: "/dns-query",
+          detour: "proxy",
+          domain_resolver: "local-dns"
+        }
+      ],
+      final: "remote-dns"
+    },
+    inbounds: [
+      {
+        type: "tun",
+        tag: "tun-in",
+        interface_name: tunOptions.interfaceName,
+        address: [
+          "172.19.0.1/30",
+          "fdfe:dcba:9876::1/126"
+        ],
+        mtu: 1500,
+        auto_route: true,
+        strict_route: tunOptions.strictRoute,
+        stack: tunOptions.stack
+      }
+    ],
+    outbounds: [
+      outbound,
+      {
+        type: "direct",
+        tag: "direct"
+      },
+      {
+        type: "block",
+        tag: "block"
+      }
+    ],
+    route: {
+      rules: [
+        {
+          protocol: "dns",
+          action: "hijack-dns"
+        },
+        {
+          port: 53,
+          action: "hijack-dns"
+        },
+        {
+          network: "udp",
+          action: "reject"
+        }
+      ],
+      auto_detect_interface: true,
+      default_domain_resolver: "local-dns",
+      final: "proxy"
+    }
+  };
+}
+
+function proxyOutbound(profile) {
+  const protocol = proxyProtocol(profile);
+  const host = valueOr(profile.host, valueOr(profile.bugHost, profile.remoteProxyHost));
+  const port = intValue(valueOr(profile.port, profile.remoteProxyPort), 0);
+  if (!hasValue(host) || port <= 0) {
+    throw new Error("Proxy profile is missing host or port.");
+  }
+
+  const outbound = {
+    type: protocol === "socks5" ? "socks" : "http",
+    tag: "proxy",
+    server: host,
+    server_port: port,
+    domain_resolver: "local-dns"
+  };
+
+  if (protocol === "socks5") {
+    outbound.version = "5";
+  }
+  if (hasValue(profile.username)) {
+    outbound.username = profile.username;
+  }
+  if (hasValue(profile.password)) {
+    outbound.password = profile.password;
+  }
+  return outbound;
+}
+
+function tunConfigOptions(options) {
+  return {
+    interfaceName: hasValue(options.interfaceName) ? String(options.interfaceName).trim() : "TerousdTun",
+    strictRoute: options.strictRoute !== false,
+    stack: hasValue(options.stack) ? String(options.stack).trim() : "mixed"
+  };
+}
+
+function proxyProtocol(profile) {
+  const value = String(profile.protocol || profile.methodType || profile.bugType || "").trim().toLowerCase();
+  return value.includes("socks") ? "socks5" : "http";
+}
+
+function intValue(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function hasValue(value) {
+  return value != null && String(value).trim().length > 0;
+}
+
+function valueOr(value, fallback) {
+  return hasValue(value) ? String(value).trim() : fallback || "";
+}
+
+module.exports = {
+  buildSingBoxTunConfig
+};

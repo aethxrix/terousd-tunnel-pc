@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isPcAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          "suyebalam0811@gmail.com"
+        ];
+    }
+
+    match /pcPublic/config {
+      allow read: if true;
+      allow write: if isPcAdmin();
+    }
+
+    match /pcServers/{serverId} {
+      allow read, write: if isPcAdmin();
+    }
+
+    match /usageUsers/{docId} {
+      allow read, delete: if isPcAdmin();
+      allow create, update: if request.resource.data.installId == docId
+        && request.resource.data.keys().hasOnly([
+          "installId",
+          "connected",
+          "connectionConfirmed",
+          "lastSeen",
+          "lastConnectedAt",
+          "lastDisconnectedAt",
+          "lastConfigDownloadAt",
+          "lastConfigDownloadVersion"
+        ]);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

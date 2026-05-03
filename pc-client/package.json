@@ -1,0 +1,31 @@
+{
+  "name": "terousd-pc-client",
+  "version": "0.3.2",
+  "description": "Terousd Tunnel desktop client for Windows.",
+  "author": "Terousd",
+  "license": "MIT",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check.js",
+    "package:win": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^41.5.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.terousd.tunnel.pc",
+    "productName": "Terousd Tunnel PC",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "assets/terousd-logo.ico",
+      "signAndEditExecutable": false
+    }
+  }
+}

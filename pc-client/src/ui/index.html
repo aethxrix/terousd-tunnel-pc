@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terousd Tunnel PC</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="../../assets/terousd-logo.png" alt="" class="brand-logo">
+          <div>
+            <h1>Terousd Tunnel PC</h1>
+            <span id="configVersion">Config 0</span>
+          </div>
+        </div>
+        <div class="status-cluster">
+          <span id="engineBadge" class="badge neutral">Engine</span>
+          <span id="statusBadge" class="badge danger">Disconnected</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="connect-panel">
+          <div class="meter">
+            <div class="meter-ring">
+              <button id="connectButton" class="power-button" type="button">START</button>
+            </div>
+            <div class="duration" id="duration">00:00:00</div>
+          </div>
+
+          <div class="selectors">
+            <label class="field">
+              <span>Server</span>
+              <select id="serverSelect"></select>
+            </label>
+            <label class="field">
+              <span>Host</span>
+              <select id="bugHostSelect"></select>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="refreshButton" type="button">UPDATE</button>
+          </div>
+        </section>
+
+        <section class="details-panel">
+          <div class="profile-strip">
+            <div>
+              <span class="label">Server</span>
+              <strong id="selectedName">No server</strong>
+            </div>
+            <div>
+              <span class="label">Mode</span>
+              <strong>Full VPN</strong>
+            </div>
+            <div>
+              <span class="label">Interface</span>
+              <strong>TerousdTun</strong>
+            </div>
+          </div>
+
+          <div id="noticeBox" class="notice hidden"></div>
+
+          <div class="log-header">
+            <span>Connection Log</span>
+            <span id="profileCount">0 servers</span>
+          </div>
+          <pre id="logBox" class="log-box"></pre>
+        </section>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
