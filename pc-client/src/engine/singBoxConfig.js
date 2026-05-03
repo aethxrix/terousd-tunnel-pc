@@ -76,7 +76,8 @@ function proxyOutbound(profile) {
     tag: "proxy",
     server: host,
     server_port: port,
-    domain_resolver: "local-dns"
+    domain_resolver: "local-dns",
+    detour: "direct"
   };
 
   if (protocol === "socks5") {

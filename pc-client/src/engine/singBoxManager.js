@@ -387,7 +387,7 @@ function primaryTunOptions() {
   return {
     interfaceName: "TerousdTun",
     strictRoute: true,
-    stack: "mixed"
+    stack: "gvisor"
   };
 }
 
@@ -395,7 +395,7 @@ function fallbackTunOptions() {
   return {
     interfaceName: "TerousdTun",
     strictRoute: false,
-    stack: "system"
+    stack: "mixed"
   };
 }
 
