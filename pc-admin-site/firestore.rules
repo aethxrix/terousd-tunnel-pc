@@ -9,6 +9,53 @@ service cloud.firestore {
         ];
     }
 
+    function validUsageId(docId) {
+      return docId.matches("^pc-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$");
+    }
+
+    function hasUsageOnlyAllowedKeys() {
+      return request.resource.data.keys().hasOnly([
+        "installId",
+        "connected",
+        "connectionConfirmed",
+        "lastSeen",
+        "lastConnectedAt",
+        "lastDisconnectedAt",
+        "lastConfigDownloadAt",
+        "lastConfigDownloadVersion"
+      ]);
+    }
+
+    function optionalBool(field) {
+      return !(field in request.resource.data) || request.resource.data[field] is bool;
+    }
+
+    function optionalTimestamp(field) {
+      return !(field in request.resource.data) || request.resource.data[field] is timestamp;
+    }
+
+    function optionalVersion(field) {
+      return !(field in request.resource.data)
+        || (request.resource.data[field] is int
+          && request.resource.data[field] >= 0
+          && request.resource.data[field] <= 999999);
+    }
+
+    function isValidUsageWrite(docId) {
+      return validUsageId(docId)
+        && hasUsageOnlyAllowedKeys()
+        && request.resource.data.keys().hasAll(["installId", "lastSeen"])
+        && request.resource.data.installId is string
+        && request.resource.data.installId == docId
+        && request.resource.data.lastSeen is timestamp
+        && optionalBool("connected")
+        && optionalBool("connectionConfirmed")
+        && optionalTimestamp("lastConnectedAt")
+        && optionalTimestamp("lastDisconnectedAt")
+        && optionalTimestamp("lastConfigDownloadAt")
+        && optionalVersion("lastConfigDownloadVersion");
+    }
+
     match /pcPublic/config {
       allow read: if true;
       allow write: if isPcAdmin();
@@ -24,17 +71,7 @@ service cloud.firestore {
 
     match /usageUsers/{docId} {
       allow read, delete: if isPcAdmin();
-      allow create, update: if request.resource.data.installId == docId
-        && request.resource.data.keys().hasOnly([
-          "installId",
-          "connected",
-          "connectionConfirmed",
-          "lastSeen",
-          "lastConnectedAt",
-          "lastDisconnectedAt",
-          "lastConfigDownloadAt",
-          "lastConfigDownloadVersion"
-        ]);
+      allow create, update: if isValidUsageWrite(docId);
     }
 
     match /{document=**} {
