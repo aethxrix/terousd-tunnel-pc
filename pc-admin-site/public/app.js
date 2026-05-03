@@ -52,6 +52,7 @@ let bugHosts = [];
 let servers = [];
 let currentConfig = { version: 0 };
 let usageTimer = null;
+let publishInFlight = false;
 
 loginBtn.addEventListener("click", () => signInWithPopup(auth, new GoogleAuthProvider()).catch(showError));
 logoutBtn.addEventListener("click", () => signOut(auth).catch(showError));
@@ -189,32 +190,48 @@ async function deleteServer(id) {
 }
 
 async function publishConfig() {
-  const activeBugHosts = bugHosts
-    .filter((bugHost) => bugHost.active !== false)
-    .map(publicBugHost)
-    .filter((bugHost) => bugHost.name);
-  const activeBugHostIds = new Set(activeBugHosts.map((bugHost) => bugHost.id));
-  const activeServers = servers
-    .filter((server) => server.active !== false)
-    .map((server) => publicServer(server, activeBugHostIds))
-    .filter((server) => server.host && server.port);
-  const version = cleanNumber(currentConfig.version) + 1 || 1;
-  await setDoc(doc(db, "pcPublic", "config"), {
-    version,
-    publishedAt: new Date().toISOString(),
-    updatedAt: serverTimestamp(),
-    bugHosts: activeBugHosts,
-    servers: activeServers,
-    notice: {
-      noticeEnabled: false,
-      noticeTitle: "",
-      noticeMessage: "",
-      noticeButton: "OKAY",
-      noticeVersion: version
-    }
-  });
-  await loadConfig();
-  setStatus(`Published config ${formatVersion(version)}.`);
+  if (publishInFlight) return;
+
+  publishInFlight = true;
+  publishBtn.disabled = true;
+  const originalText = publishBtn.textContent;
+  publishBtn.textContent = "Publishing";
+  setStatus("Publishing config.");
+
+  try {
+    const activeBugHosts = bugHosts
+      .filter((bugHost) => bugHost.active !== false)
+      .map(publicBugHost)
+      .filter((bugHost) => bugHost.name);
+    const activeBugHostIds = new Set(activeBugHosts.map((bugHost) => bugHost.id));
+    const activeServers = servers
+      .filter((server) => server.active !== false)
+      .map((server) => publicServer(server, activeBugHostIds))
+      .filter((server) => server.host && server.port);
+    const version = cleanNumber(currentConfig.version) + 1 || 1;
+    await setDoc(doc(db, "pcPublic", "config"), {
+      version,
+      publishedAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+      bugHosts: activeBugHosts,
+      servers: activeServers,
+      notice: {
+        noticeEnabled: false,
+        noticeTitle: "",
+        noticeMessage: "",
+        noticeButton: "OKAY",
+        noticeVersion: version
+      }
+    });
+    await loadConfig();
+    setStatus(`Published config ${formatVersion(version)}.`);
+  } catch (error) {
+    showError(error);
+  } finally {
+    publishInFlight = false;
+    publishBtn.disabled = false;
+    publishBtn.textContent = originalText;
+  }
 }
 
 function renderAll() {
