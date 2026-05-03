@@ -11,18 +11,9 @@ function buildSingBoxTunConfig(profile, options = {}) {
         {
           type: "local",
           tag: "local-dns"
-        },
-        {
-          type: "https",
-          tag: "remote-dns",
-          server: "1.1.1.1",
-          server_port: 443,
-          path: "/dns-query",
-          detour: "proxy",
-          domain_resolver: "local-dns"
         }
       ],
-      final: "remote-dns"
+      final: "local-dns"
     },
     inbounds: [
       {
