@@ -199,15 +199,12 @@ async function publishConfig() {
   setStatus("Publishing config.");
 
   try {
-    const activeBugHosts = bugHosts
-      .filter((bugHost) => bugHost.active !== false)
-      .map(publicBugHost)
-      .filter((bugHost) => bugHost.name);
-    const activeBugHostIds = new Set(activeBugHosts.map((bugHost) => bugHost.id));
-    const activeServers = servers
-      .filter((server) => server.active !== false)
-      .map((server) => publicServer(server, activeBugHostIds))
-      .filter((server) => server.host && server.port);
+    const { activeBugHosts, activeServers } = buildPublishedConfig();
+    if (publishedConfigKey(currentConfig) === publishedConfigKey({ bugHosts: activeBugHosts, servers: activeServers })) {
+      setStatus("No server changes to publish.");
+      return;
+    }
+
     const version = cleanNumber(currentConfig.version) + 1 || 1;
     await setDoc(doc(db, "pcPublic", "config"), {
       version,
@@ -232,6 +229,33 @@ async function publishConfig() {
     publishBtn.disabled = false;
     publishBtn.textContent = originalText;
   }
+}
+
+function buildPublishedConfig() {
+  const activeBugHosts = bugHosts
+    .filter((bugHost) => bugHost.active !== false)
+    .map(publicBugHost)
+    .filter((bugHost) => bugHost.name);
+  const activeBugHostIds = new Set(activeBugHosts.map((bugHost) => bugHost.id));
+  const activeServers = servers
+    .filter((server) => server.active !== false)
+    .map((server) => publicServer(server, activeBugHostIds))
+    .filter((server) => server.host && server.port);
+  return { activeBugHosts, activeServers };
+}
+
+function publishedConfigKey(config) {
+  const existingBugHosts = Array.isArray(config.bugHosts)
+    ? config.bugHosts.map(publicBugHost).filter((bugHost) => bugHost.name)
+    : [];
+  const existingBugHostIds = new Set(existingBugHosts.map((bugHost) => bugHost.id));
+  const existingServers = Array.isArray(config.servers)
+    ? config.servers.map((server) => publicServer(server, existingBugHostIds)).filter((server) => server.host && server.port)
+    : [];
+  return JSON.stringify({
+    bugHosts: existingBugHosts.map(canonicalBugHost),
+    servers: existingServers.map(canonicalServer)
+  });
 }
 
 function renderAll() {
@@ -365,7 +389,7 @@ function publicBugHost(bugHost) {
 }
 
 function publicServer(server, activeBugHostIds) {
-  const bugHostId = cleanBugHostId(server.bugHostId);
+  const bugHostId = cleanBugHostId(server.bugHostId || server.proxyGroupId);
   return {
     id: server.id,
     name: cleanText(server.name),
@@ -375,6 +399,31 @@ function publicServer(server, activeBugHostIds) {
     username: cleanText(server.username),
     password: cleanText(server.password),
     proxyGroupId: activeBugHostIds.has(bugHostId) ? bugHostId : "",
+    sortOrder: cleanNumber(server.sortOrder),
+    active: server.active !== false
+  };
+}
+
+function canonicalBugHost(bugHost) {
+  return {
+    id: cleanText(bugHost.id),
+    name: cleanText(bugHost.name),
+    bugType: "proxy-group",
+    sortOrder: cleanNumber(bugHost.sortOrder),
+    active: bugHost.active !== false
+  };
+}
+
+function canonicalServer(server) {
+  return {
+    id: cleanText(server.id),
+    name: cleanText(server.name),
+    protocol: cleanProtocol(server.protocol),
+    host: cleanText(server.host),
+    port: cleanPort(server.port),
+    username: cleanText(server.username),
+    password: cleanText(server.password),
+    proxyGroupId: cleanBugHostId(server.proxyGroupId) === UNGROUPED_BUG_ID ? "" : cleanBugHostId(server.proxyGroupId),
     sortOrder: cleanNumber(server.sortOrder),
     active: server.active !== false
   };
