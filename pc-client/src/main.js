@@ -83,6 +83,7 @@ app.whenReady().then(async () => {
   repository = new ConfigRepository(app);
   engine = new SingBoxManager(app);
   usageReporter = new UsageReporter(app);
+  await engine.repairSystemState().catch(() => {});
   registerIpc();
   createTray();
   createWindow();
@@ -281,8 +282,36 @@ function registerIpc() {
 
   ipcMain.handle("tunnel:connect", async (_event, selection) => {
     engine.clearLogs();
-    const composed = await repository.composeProfile(selection.serverId, selection.bugHostId);
-    const status = await engine.start(composed.profile);
+    const candidates = await repository.composeProfileCandidates(selection.serverId, selection.bugHostId);
+    if (!candidates.length) {
+      throw new Error("Choose a server first.");
+    }
+    let lastError = null;
+    let composed = null;
+    let status = null;
+    for (let index = 0; index < candidates.length; index += 1) {
+      composed = candidates[index];
+      if (index > 0) {
+        engine.log("info", `Trying backup server: ${composed.server?.name || composed.profile.name || "Proxy"}.`);
+      }
+      try {
+        status = await engine.start(composed.profile);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error.requiresAdmin) {
+          throw error;
+        }
+        await engine.stop().catch(() => {});
+        if (index < candidates.length - 1) {
+          engine.log("error", `${error.message || String(error)} Switching server.`);
+          continue;
+        }
+      }
+    }
+    if (!status) {
+      throw lastError || new Error("Connection failed.");
+    }
     scheduleUsageConnected();
     return { ...status, selection: composed };
   });

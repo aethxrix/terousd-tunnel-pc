@@ -3,6 +3,7 @@ const path = require("node:path");
 const { spawn, execFile } = require("node:child_process");
 const { buildSingBoxTunConfig } = require("./singBoxConfig");
 const { isElevated } = require("../system/windowsAdmin");
+const windowsNetwork = require("../system/windowsNetwork");
 const windowsProxy = require("../system/windowsProxy");
 
 const SING_BOX_RELEASE_API = "https://api.github.com/repos/SagerNet/sing-box/releases/latest";
@@ -16,6 +17,7 @@ class SingBoxManager {
     this.process = null;
     this.requestedProfile = null;
     this.runningProfile = null;
+    this.runningNetwork = null;
     this.startedAt = 0;
     this.lastError = "";
     this.stopping = false;
@@ -43,6 +45,12 @@ class SingBoxManager {
     return { ready: true, path: local, source: "download" };
   }
 
+  async repairSystemState() {
+    await windowsNetwork.cleanupOrphanEngines(this.engineDir);
+    await windowsProxy.restoreProxy(this.proxyBackupFile).catch(() => {});
+    await windowsNetwork.flushDns().catch(() => {});
+  }
+
   async start(profile) {
     if (process.platform !== "win32") {
       throw new Error("Full VPN mode is only available on Windows.");
@@ -59,14 +67,20 @@ class SingBoxManager {
     this.requestedProfile = profile;
     this.restartAttempts = 0;
     this.lastError = "";
-    await windowsProxy.restoreProxy(this.proxyBackupFile).catch(() => {});
+    await this.repairSystemState();
+    this.log("info", "Checking Windows network.");
+    const network = await windowsNetwork.prepareForTunnel(profile);
+    this.runningNetwork = network;
+    if (network.defaultInterface) {
+      this.log("info", `Using network adapter: ${network.defaultInterface}.`);
+    }
     const engine = await this.ensureEngine();
     try {
-      return await this.startProcess(engine.path, profile, primaryTunOptions());
+      return await this.startProcess(engine.path, profile, optionsWithNetwork(primaryTunOptions(), network));
     } catch (error) {
       this.log("error", `${error.message || String(error)} Retrying with compatibility mode.`);
       await this.cleanupExitedProcess();
-      return this.startProcess(engine.path, profile, fallbackTunOptions());
+      return this.startProcess(engine.path, profile, optionsWithNetwork(fallbackTunOptions(), network));
     }
   }
 
@@ -98,13 +112,17 @@ class SingBoxManager {
       const message = this.stopping
         ? "Full VPN mode stopped."
         : `TUN engine exited${code == null ? "" : ` with code ${code}`}${signal ? ` (${signal})` : ""}.`;
+      const shouldRestart = !this.stopping && this.requestedProfile && ranForMs > 5000;
       this.log(this.stopping ? "info" : "error", message);
       if (this.process === child) {
         this.process = null;
         this.runningProfile = null;
+        if (!shouldRestart) {
+          this.runningNetwork = null;
+        }
         this.startedAt = 0;
       }
-      if (!this.stopping && this.requestedProfile && ranForMs > 5000) {
+      if (shouldRestart) {
         this.restartAfterUnexpectedExit(enginePath, this.requestedProfile);
       }
     });
@@ -132,7 +150,9 @@ class SingBoxManager {
     }
     this.process = null;
     this.runningProfile = null;
+    this.runningNetwork = null;
     this.startedAt = 0;
+    await windowsNetwork.flushDns().catch(() => {});
     this.stopping = false;
     return this.status();
   }
@@ -145,6 +165,7 @@ class SingBoxManager {
     }
     this.process = null;
     this.runningProfile = null;
+    this.runningNetwork = null;
     this.startedAt = 0;
   }
 
@@ -161,7 +182,10 @@ class SingBoxManager {
       if (this.stopping || this.process || !this.requestedProfile) {
         return;
       }
-      const options = attempt === 1 ? fallbackTunOptions() : lastResortTunOptions();
+      const options = optionsWithNetwork(
+        attempt === 1 ? fallbackTunOptions() : lastResortTunOptions(),
+        this.runningNetwork || {}
+      );
       this.startProcess(enginePath, profile, options).catch((error) => {
         this.log("error", `TUN restart failed: ${error.message || String(error)}`);
         this.restartAfterUnexpectedExit(enginePath, profile);
@@ -175,6 +199,7 @@ class SingBoxManager {
       profile: this.runningProfile,
       startedAt: this.startedAt,
       lastError: this.lastError,
+      network: this.runningNetwork,
       ports: { tun: "TerousdTun" }
     };
   }
@@ -404,6 +429,13 @@ function lastResortTunOptions() {
     interfaceName: "TerousdTun2",
     strictRoute: false,
     stack: "system"
+  };
+}
+
+function optionsWithNetwork(options, network = {}) {
+  return {
+    ...options,
+    defaultInterface: network.defaultInterface || ""
   };
 }
 

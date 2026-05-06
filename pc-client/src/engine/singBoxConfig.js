@@ -1,6 +1,12 @@
 function buildSingBoxTunConfig(profile, options = {}) {
   const outbound = proxyOutbound(profile);
   const tunOptions = tunConfigOptions(options);
+  applyBindInterface(outbound, tunOptions.defaultInterface);
+  const directOutbound = {
+    type: "direct",
+    tag: "direct"
+  };
+  applyBindInterface(directOutbound, tunOptions.defaultInterface);
   return {
     log: {
       level: "warn",
@@ -32,10 +38,7 @@ function buildSingBoxTunConfig(profile, options = {}) {
     ],
     outbounds: [
       outbound,
-      {
-        type: "direct",
-        tag: "direct"
-      },
+      directOutbound,
       {
         type: "block",
         tag: "block"
@@ -56,7 +59,8 @@ function buildSingBoxTunConfig(profile, options = {}) {
           action: "reject"
         }
       ],
-      auto_detect_interface: true,
+      auto_detect_interface: !hasValue(tunOptions.defaultInterface),
+      ...(hasValue(tunOptions.defaultInterface) ? { default_interface: tunOptions.defaultInterface } : {}),
       default_domain_resolver: "local-dns",
       final: "proxy"
     }
@@ -96,8 +100,15 @@ function tunConfigOptions(options) {
   return {
     interfaceName: hasValue(options.interfaceName) ? String(options.interfaceName).trim() : "TerousdTun",
     strictRoute: options.strictRoute !== false,
-    stack: hasValue(options.stack) ? String(options.stack).trim() : "mixed"
+    stack: hasValue(options.stack) ? String(options.stack).trim() : "mixed",
+    defaultInterface: hasValue(options.defaultInterface) ? String(options.defaultInterface).trim() : ""
   };
+}
+
+function applyBindInterface(outbound, interfaceName) {
+  if (hasValue(interfaceName)) {
+    outbound.bind_interface = String(interfaceName).trim();
+  }
 }
 
 function proxyProtocol(profile) {

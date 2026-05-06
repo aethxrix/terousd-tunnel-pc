@@ -66,16 +66,21 @@ class ConfigRepository {
   }
 
   async composeProfile(serverId, bugId) {
-    const cache = await this.loadCached();
-    const bug = selectedBugHost(cache, bugId);
-    const server = selectServer(cache, serverId, bug);
-    if (!server) {
+    const candidates = await this.composeProfileCandidates(serverId, bugId);
+    if (!candidates.length) {
       throw new Error("Choose a server first.");
     }
-    if (!isDirectProxyProfile(server)) {
-      throw new Error("This PC app supports only HTTP and SOCKS5 proxy servers.");
+    return candidates[0];
+  }
+
+  async composeProfileCandidates(serverId, bugId) {
+    const cache = await this.loadCached();
+    const bug = selectedBugHost(cache, bugId);
+    const servers = orderedServersForBug(cache, serverId, bug);
+    if (!servers.length) {
+      return [];
     }
-    return directProxyResult(directProxyProfile(server, bug), server, bug);
+    return servers.map((server) => directProxyResult(directProxyProfile(server, bug), server, bug));
   }
 
   async fetchRemoteConfig(bustCache) {
@@ -298,10 +303,30 @@ function selectServer(cache, serverId, bug) {
   if (!server) {
     return null;
   }
-  if (methodForBug(bug) === "proxy-group") {
-    return server.proxyGroupId === bug.id ? server : null;
+  return serverAllowedForBug(server, bug) ? server : null;
+}
+
+function orderedServersForBug(cache, serverId, bug) {
+  const compatible = cache.servers
+    .filter((server) => isDirectProxyProfile(server) && hasProxyAddress(server) && serverAllowedForBug(server, bug));
+  const selected = selectServer(cache, serverId, bug);
+  if (!selected || !isDirectProxyProfile(selected) || !hasProxyAddress(selected)) {
+    return compatible;
   }
-  return server;
+  return [
+    selected,
+    ...compatible.filter((server) => server.id !== selected.id)
+  ];
+}
+
+function serverAllowedForBug(server, bug) {
+  if (!server) {
+    return false;
+  }
+  if (methodForBug(bug) === "proxy-group") {
+    return server.proxyGroupId === bug.id;
+  }
+  return true;
 }
 
 function sortProfiles(items) {
