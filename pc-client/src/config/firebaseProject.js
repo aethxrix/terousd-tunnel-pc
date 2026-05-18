@@ -1,6 +1,6 @@
 module.exports = {
-  apiKey: "YOUR_FIREBASE_WEB_API_KEY",
-  projectId: "YOUR_FIREBASE_PROJECT_ID",
+  apiKey: "AIzaSyCIfzqK6913cD5Sa4mnwwqnWgoOxu8mN_A",
+  projectId: "terousd-tunnel-pc",
   databaseId: "(default)",
   publicConfigCollection: "pcPublic",
   publicConfigDocument: "config",
