@@ -14,12 +14,15 @@ let usageReporter;
 let forceQuit = false;
 let usageConfirmTimer = null;
 let usageHeartbeatTimer = null;
+let usageActivityTimer = null;
 let usageConnectionConfirmed = false;
+let usageConnectionReported = false;
 let showRequestTimer = null;
 let lastShowRequestToken = "";
 
 const USAGE_CONNECTED_CONFIRM_MS = 60 * 1000;
 const USAGE_CONNECTED_HEARTBEAT_MS = 10 * 60 * 1000;
+const USAGE_ACTIVITY_HEARTBEAT_MS = 60 * 60 * 1000;
 const SHOW_REQUEST_POLL_MS = 700;
 
 if (process.platform === "win32") {
@@ -84,6 +87,7 @@ app.whenReady().then(async () => {
   engine = new SingBoxManager(app);
   usageReporter = new UsageReporter(app);
   await engine.repairSystemState().catch(() => {});
+  startUsageActivityHeartbeat();
   registerIpc();
   createTray();
   createWindow();
@@ -104,6 +108,8 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   forceQuit = true;
+  reportUsageDisconnected();
+  stopUsageActivityHeartbeat();
   stopShowRequestWatcher();
 });
 
@@ -268,7 +274,7 @@ function registerIpc() {
 
   ipcMain.handle("config:refresh", async () => {
     const result = await repository.refresh();
-    usageReporter.recordConfigDownload(result.version).catch(() => {});
+    usageReporter.recordConfigDownload(result.version, isTunnelRunning()).catch(() => {});
     return result;
   });
   ipcMain.handle("config:check-update", async () => repository.checkForUpdate());
@@ -332,6 +338,8 @@ function registerIpc() {
 function scheduleUsageConnected() {
   stopUsageHeartbeat();
   usageConnectionConfirmed = false;
+  usageConnectionReported = true;
+  usageReporter.recordConnected(true).catch(() => {});
   usageConfirmTimer = setTimeout(() => {
     usageConfirmTimer = null;
     if (!isTunnelRunning()) {
@@ -361,9 +369,10 @@ function stopUsageHeartbeat() {
 }
 
 function reportUsageDisconnected() {
-  const shouldReport = usageConnectionConfirmed;
+  const shouldReport = usageConnectionReported || usageConnectionConfirmed;
   stopUsageHeartbeat();
   usageConnectionConfirmed = false;
+  usageConnectionReported = false;
   if (shouldReport) {
     usageReporter.recordConnected(false).catch(() => {});
   }
@@ -371,6 +380,23 @@ function reportUsageDisconnected() {
 
 function isTunnelRunning() {
   return !!(engine && engine.status().running);
+}
+
+function startUsageActivityHeartbeat() {
+  stopUsageActivityHeartbeat();
+  usageReporter.recordSeen(isTunnelRunning()).catch(() => {});
+  usageActivityTimer = setInterval(() => {
+    if (!isTunnelRunning()) {
+      usageReporter.recordSeen(false).catch(() => {});
+    }
+  }, USAGE_ACTIVITY_HEARTBEAT_MS);
+}
+
+function stopUsageActivityHeartbeat() {
+  if (usageActivityTimer) {
+    clearInterval(usageActivityTimer);
+    usageActivityTimer = null;
+  }
 }
 
 function delay(ms) {

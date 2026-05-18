@@ -5,7 +5,7 @@ service cloud.firestore {
     function isPcAdmin() {
       return request.auth != null
         && request.auth.token.email in [
-          "you@example.com"
+          "suyebalam0811@gmail.com"
         ];
     }
 

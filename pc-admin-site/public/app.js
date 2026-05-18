@@ -10,6 +10,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   getFirestore,
@@ -43,9 +44,12 @@ const serverCount = document.querySelector("#serverCount");
 const bugHostCount = document.querySelector("#bugHostCount");
 const versionText = document.querySelector("#versionText");
 const connectedNow = document.querySelector("#connectedNow");
+const usersToday = document.querySelector("#usersToday");
 const statusBox = document.querySelector("#status");
 const formTitle = document.querySelector("#formTitle");
 const bugHostFormTitle = document.querySelector("#bugHostFormTitle");
+const CONNECTED_WINDOW_MS = 30 * 60 * 1000;
+const USAGE_REFRESH_MS = 60 * 1000;
 
 let bugHosts = [];
 let servers = [];
@@ -72,6 +76,7 @@ onAuthStateChanged(auth, async (user) => {
     authState.textContent = user ? "Not allowed" : "Signed out";
     bugHosts = [];
     servers = [];
+    renderUsageCounts();
     renderAll();
     return;
   }
@@ -83,7 +88,11 @@ onAuthStateChanged(auth, async (user) => {
   authState.textContent = user.email;
   try {
     await loadAll();
-    usageTimer = setInterval(refreshUsage, 60 * 1000);
+    usageTimer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshUsage().catch(showError);
+      }
+    }, USAGE_REFRESH_MS);
   } catch (error) {
     renderAll();
     showError(error);
@@ -113,16 +122,40 @@ async function loadConfig() {
 }
 
 async function refreshUsage() {
-  const cutoff = Timestamp.fromDate(new Date(Date.now() - 30 * 60 * 1000));
-  const snapshot = await getDocs(query(collection(db, "usageUsers"), where("lastSeen", ">=", cutoff)));
-  let count = 0;
   const now = Date.now();
-  snapshot.forEach((item) => {
-    if (isConnected(item.data(), now)) {
-      count += 1;
+  const usageRef = collection(db, "usageUsers");
+  const connectedCutoff = Timestamp.fromDate(new Date(now - CONNECTED_WINDOW_MS));
+  const todayStart = Timestamp.fromDate(new Date(startOfToday(now)));
+  const [connectedCount, usersTodaySnapshot] = await Promise.all([
+    countConnectedUsers(usageRef, connectedCutoff, now),
+    getCountFromServer(query(usageRef, where("lastSeen", ">=", todayStart)))
+  ]);
+  renderUsageCounts(connectedCount, usersTodaySnapshot.data().count || 0);
+}
+
+async function countConnectedUsers(usageRef, connectedCutoff, now) {
+  try {
+    const snapshot = await getCountFromServer(query(
+      usageRef,
+      where("connected", "==", true),
+      where("lastSeen", ">=", connectedCutoff)
+    ));
+    return snapshot.data().count || 0;
+  } catch {
+    return countConnectedUsersFromRecentDocs(usageRef, connectedCutoff, now);
+  }
+}
+
+async function countConnectedUsersFromRecentDocs(usageRef, connectedCutoff, now) {
+  const connectedSnapshot = await getDocs(query(usageRef, where("lastSeen", ">=", connectedCutoff)));
+  let connectedCount = 0;
+  connectedSnapshot.forEach((item) => {
+    const data = item.data();
+    if (isConnected(data, now)) {
+      connectedCount += 1;
     }
   });
-  connectedNow.textContent = String(count);
+  return connectedCount;
 }
 
 async function saveBugHost(event) {
@@ -468,11 +501,22 @@ function sortAdminRows(items) {
 }
 
 function isConnected(data, now) {
-  if (data.connected !== true || data.connectionConfirmed !== true) return false;
+  if (data.connected !== true || data.connectionConfirmed === false) return false;
   const connectedAt = toTime(data.lastConnectedAt || data.lastSeen);
   const seenAt = toTime(data.lastSeen || data.lastConnectedAt);
   const disconnectedAt = toTime(data.lastDisconnectedAt);
-  return connectedAt && seenAt && now - seenAt <= 30 * 60 * 1000 && (!disconnectedAt || disconnectedAt <= connectedAt);
+  return connectedAt && seenAt && now - seenAt <= CONNECTED_WINDOW_MS && (!disconnectedAt || disconnectedAt <= connectedAt);
+}
+
+function renderUsageCounts(connectedCount = 0, usersTodayCount = 0) {
+  connectedNow.textContent = String(connectedCount);
+  usersToday.textContent = String(usersTodayCount);
+}
+
+function startOfToday(now) {
+  const date = new Date(now);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
 }
 
 function toTime(value) {

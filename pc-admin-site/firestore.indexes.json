@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "usageUsers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "connected", "order": "ASCENDING" },
+        { "fieldPath": "lastSeen", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -10,14 +10,38 @@ class UsageReporter {
     this.installIdPromise = null;
   }
 
-  async recordConfigDownload(version) {
+  async recordSeen(connected = false) {
     const now = new Date();
-    await this.patch({
+    const payload = {
       installId: await this.installId(),
+      connected: connected === true,
+      connectionConfirmed: connected === true,
+      lastSeen: now
+    };
+    if (connected) {
+      payload.lastConnectedAt = now;
+    } else {
+      payload.lastDisconnectedAt = now;
+    }
+    await this.patch(payload);
+  }
+
+  async recordConfigDownload(version, connected = false) {
+    const now = new Date();
+    const payload = {
+      installId: await this.installId(),
+      connected: connected === true,
+      connectionConfirmed: connected === true,
       lastSeen: now,
       lastConfigDownloadAt: now,
       lastConfigDownloadVersion: cleanVersion(version)
-    });
+    };
+    if (connected) {
+      payload.lastConnectedAt = now;
+    } else {
+      payload.lastDisconnectedAt = now;
+    }
+    await this.patch(payload);
   }
 
   async recordConnected(connected) {

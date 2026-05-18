@@ -141,8 +141,9 @@ button.ghost {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 12px;
+  overflow: hidden;
 }
 
 .stats div {
@@ -323,6 +324,25 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stats div:nth-child(odd) {
+    border-right: 1px solid var(--line);
+  }
+
+  .stats div:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
   .topbar,
   .server-row {
     grid-template-columns: 1fr;
@@ -330,5 +350,16 @@ select:focus {
 
   .topbar {
     align-items: stretch;
+  }
+}
+
+@media (max-width: 460px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stats div,
+  .stats div:nth-child(odd) {
+    border-right: 0;
   }
 }
