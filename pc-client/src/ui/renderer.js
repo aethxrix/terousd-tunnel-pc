@@ -442,6 +442,8 @@ function shouldShowLog(message, level) {
   if (lower.includes("accepted")
       || lower.includes("from 127.0.0.1")
       || lower.includes("process dns packet")
+      || lower.includes("connection upload closed")
+      || lower.includes("forcibly closed by the remote host")
       || lower.includes(">> proxy")
       || lower.includes("tcp:")
       || lower.includes(":443")

@@ -14,6 +14,7 @@ class SingBoxManager {
     this.engineDir = path.join(this.dataDir, "engines", "sing-box");
     this.runtimeDir = path.join(this.dataDir, "runtime");
     this.proxyBackupFile = path.join(this.dataDir, "windows-proxy-backup.json");
+    this.dnsBackupFile = path.join(this.dataDir, "windows-dns-backup.json");
     this.process = null;
     this.requestedProfile = null;
     this.runningProfile = null;
@@ -24,6 +25,7 @@ class SingBoxManager {
     this.restartAttempts = 0;
     this.logs = [];
     this.nextLogId = 1;
+    this.cleanupPromise = null;
   }
 
   async ensureEngine() {
@@ -47,6 +49,8 @@ class SingBoxManager {
 
   async repairSystemState() {
     await windowsNetwork.cleanupOrphanEngines(this.engineDir);
+    await windowsNetwork.restoreDns(this.dnsBackupFile).catch(() => {});
+    await windowsNetwork.cleanupTunnelNetworkState().catch(() => {});
     await windowsProxy.restoreProxy(this.proxyBackupFile).catch(() => {});
     await windowsNetwork.flushDns().catch(() => {});
   }
@@ -74,6 +78,9 @@ class SingBoxManager {
     if (network.defaultInterface) {
       this.log("info", `Using network adapter: ${network.defaultInterface}.`);
     }
+    await windowsNetwork.backupDns(this.dnsBackupFile).catch((error) => {
+      this.log("error", `Windows DNS backup failed: ${error.message || String(error)}`);
+    });
     const engine = await this.ensureEngine();
     try {
       return await this.startProcess(engine.path, profile, optionsWithNetwork(primaryTunOptions(), network));
@@ -108,11 +115,10 @@ class SingBoxManager {
     child.stdout.on("data", (data) => this.log("core", cleanLog(data)));
     child.stderr.on("data", (data) => this.log("core", cleanLog(data)));
     child.on("exit", (code, signal) => {
-      const ranForMs = this.startedAt ? Date.now() - this.startedAt : 0;
       const message = this.stopping
         ? "Full VPN mode stopped."
         : `TUN engine exited${code == null ? "" : ` with code ${code}`}${signal ? ` (${signal})` : ""}.`;
-      const shouldRestart = !this.stopping && this.requestedProfile && ranForMs > 5000;
+      const shouldRestart = !this.stopping && this.requestedProfile && child.terousdReady;
       this.log(this.stopping ? "info" : "error", message);
       if (this.process === child) {
         this.process = null;
@@ -124,6 +130,8 @@ class SingBoxManager {
       }
       if (shouldRestart) {
         this.restartAfterUnexpectedExit(enginePath, this.requestedProfile);
+      } else if (!this.stopping && child.terousdReady) {
+        this.cleanupAfterTunnelStop().catch(() => {});
       }
     });
 
@@ -132,6 +140,7 @@ class SingBoxManager {
       throw new Error("TUN engine exited before the tunnel was ready.");
     }
 
+    child.terousdReady = true;
     this.log("info", "Full VPN mode enabled.");
     return this.status();
   }
@@ -152,7 +161,7 @@ class SingBoxManager {
     this.runningProfile = null;
     this.runningNetwork = null;
     this.startedAt = 0;
-    await windowsNetwork.flushDns().catch(() => {});
+    await this.cleanupAfterTunnelStop();
     this.stopping = false;
     return this.status();
   }
@@ -167,30 +176,65 @@ class SingBoxManager {
     this.runningProfile = null;
     this.runningNetwork = null;
     this.startedAt = 0;
+    await windowsNetwork.cleanupTunnelNetworkState().catch(() => {});
+    await windowsNetwork.flushDns().catch(() => {});
   }
 
   restartAfterUnexpectedExit(enginePath, profile) {
     if (this.restartAttempts >= 2) {
       this.log("error", "TUN engine stopped repeatedly. Please press START again.");
       this.requestedProfile = null;
+      this.cleanupAfterTunnelStop().catch(() => {});
       return;
     }
     this.restartAttempts += 1;
     const attempt = this.restartAttempts;
     this.log("info", `Restarting TUN engine (${attempt}/2).`);
-    setTimeout(() => {
+    setTimeout(async () => {
       if (this.stopping || this.process || !this.requestedProfile) {
         return;
       }
-      const options = optionsWithNetwork(
-        attempt === 1 ? fallbackTunOptions() : lastResortTunOptions(),
-        this.runningNetwork || {}
-      );
-      this.startProcess(enginePath, profile, options).catch((error) => {
+      try {
+        await this.repairSystemState();
+        this.log("info", "Checking Windows network.");
+        const network = await windowsNetwork.prepareForTunnel(profile);
+        this.runningNetwork = network;
+        if (network.defaultInterface) {
+          this.log("info", `Using network adapter: ${network.defaultInterface}.`);
+        }
+        await windowsNetwork.backupDns(this.dnsBackupFile).catch((error) => {
+          this.log("error", `Windows DNS backup failed: ${error.message || String(error)}`);
+        });
+        const options = optionsWithNetwork(
+          attempt === 1 ? fallbackTunOptions() : lastResortTunOptions(),
+          network
+        );
+        await this.startProcess(enginePath, profile, options);
+      } catch (error) {
         this.log("error", `TUN restart failed: ${error.message || String(error)}`);
+        await this.cleanupAfterTunnelStop().catch(() => {});
         this.restartAfterUnexpectedExit(enginePath, profile);
-      });
+      }
     }, 1500);
+  }
+
+  async cleanupAfterTunnelStop() {
+    if (this.cleanupPromise) {
+      return this.cleanupPromise;
+    }
+    this.cleanupPromise = (async () => {
+      this.process = null;
+      this.runningProfile = null;
+      this.runningNetwork = null;
+      this.startedAt = 0;
+      await windowsNetwork.restoreDns(this.dnsBackupFile).catch(() => {});
+      await windowsNetwork.cleanupTunnelNetworkState().catch(() => {});
+      await windowsProxy.restoreProxy(this.proxyBackupFile).catch(() => {});
+      await windowsNetwork.flushDns().catch(() => {});
+    })().finally(() => {
+      this.cleanupPromise = null;
+    });
+    return this.cleanupPromise;
   }
 
   status() {
@@ -276,6 +320,8 @@ function shouldStoreLog(level, message) {
       || lower.includes("dns query")
       || lower.includes("dns: exchange failed")
       || lower.includes("process dns packet")
+      || lower.includes("connection upload closed")
+      || lower.includes("forcibly closed by the remote host")
       || lower.includes("udp is not supported by outbound")
       || lower.includes("inbound/")
       || lower.includes("outbound/")) {

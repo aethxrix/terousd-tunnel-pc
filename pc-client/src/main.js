@@ -19,6 +19,8 @@ let usageConnectionConfirmed = false;
 let usageConnectionReported = false;
 let showRequestTimer = null;
 let lastShowRequestToken = "";
+let quitCleanupStarted = false;
+let quitCleanupComplete = false;
 
 const USAGE_CONNECTED_CONFIRM_MS = 60 * 1000;
 const USAGE_CONNECTED_HEARTBEAT_MS = 10 * 60 * 1000;
@@ -106,11 +108,15 @@ app.on("window-all-closed", () => {
   // Keep the tunnel alive in the background after the window is closed.
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
   forceQuit = true;
-  reportUsageDisconnected();
-  stopUsageActivityHeartbeat();
-  stopShowRequestWatcher();
+  if (quitCleanupComplete) {
+    return;
+  }
+  event.preventDefault();
+  if (!quitCleanupStarted) {
+    quitCleanly();
+  }
 });
 
 function createTray() {
@@ -124,16 +130,7 @@ function createTray() {
     { label: "Show", click: () => showMainWindow() },
     {
       label: "Quit",
-      click: async () => {
-        forceQuit = true;
-        reportUsageDisconnected();
-        try {
-          await engine.stop();
-        } catch {
-          // Quit should continue even if cleanup has already happened.
-        }
-        app.quit();
-      }
+      click: () => quitCleanly()
     }
   ]));
   tray.on("double-click", () => showMainWindow());
@@ -282,7 +279,7 @@ function registerIpc() {
   ipcMain.handle("engine:ensure", async () => engine.ensureEngine());
   ipcMain.handle("app:restart-admin", async () => {
     await restartAsAdmin(adminLaunchPath());
-    app.quit();
+    await quitCleanly();
     return true;
   });
 
@@ -380,6 +377,26 @@ function reportUsageDisconnected() {
 
 function isTunnelRunning() {
   return !!(engine && engine.status().running);
+}
+
+async function quitCleanly() {
+  if (quitCleanupStarted) {
+    return;
+  }
+  quitCleanupStarted = true;
+  forceQuit = true;
+  reportUsageDisconnected();
+  stopUsageActivityHeartbeat();
+  stopShowRequestWatcher();
+  try {
+    if (engine) {
+      await engine.stop();
+    }
+  } catch {
+    // Quit should continue even if Windows has already cleaned part of the tunnel.
+  }
+  quitCleanupComplete = true;
+  app.quit();
 }
 
 function startUsageActivityHeartbeat() {
