@@ -19,7 +19,8 @@ function buildSingBoxTunConfig(profile, options = {}) {
           tag: "local-dns"
         }
       ],
-      final: "local-dns"
+      final: "local-dns",
+      strategy: "ipv4_only"
     },
     inbounds: [
       {
@@ -27,8 +28,7 @@ function buildSingBoxTunConfig(profile, options = {}) {
         tag: "tun-in",
         interface_name: tunOptions.interfaceName,
         address: [
-          "172.19.0.1/30",
-          "fdfe:dcba:9876::1/126"
+          "172.19.0.1/30"
         ],
         mtu: 1500,
         auto_route: true,

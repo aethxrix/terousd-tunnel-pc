@@ -24,6 +24,8 @@ assert.equal(built.outbounds[0].username, "user");
 assert.equal(built.outbounds[0].domain_resolver, "local-dns");
 assert.equal(built.outbounds[0].detour, "direct");
 assert.equal(built.dns.final, "local-dns");
+assert.equal(built.dns.strategy, "ipv4_only");
+assert.deepEqual(built.inbounds[0].address, ["172.19.0.1/30"]);
 assert.equal(built.route.rules[0].action, "hijack-dns");
 assert.equal(built.route.rules[2].network, "udp");
 assert.equal(built.route.rules[2].action, "reject");
